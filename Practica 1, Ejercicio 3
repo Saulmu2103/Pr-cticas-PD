@@ -1,0 +1,22 @@
+#include <Arduino.h>
+
+#define LED_BUILTIN 2  // Pin del LED integrado
+#define DELAY 1000     // Retardo en milisegundos
+
+// Puntero al registro de salida del GPIO (para establecer bits)
+volatile uint32_t *gpio_out_set = (volatile uint32_t *)GPIO_OUT_W1TS_REG;
+
+// Puntero al registro de salida del GPIO (para limpiar bits)
+volatile uint32_t *gpio_out_clear = (volatile uint32_t *)GPIO_OUT_W1TC_REG;
+
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT); // Configura el pin del LED como salida
+}
+
+void loop() {
+  // Enciende el LED (establece el bit correspondiente al pin 2)
+  *gpio_out_set = (1 << LED_BUILTIN);
+ 
+
+  // Apaga el LED (limpia el bit correspondiente al pin 2)
+  *gpio_out_clear = (1 << LED_BUILTIN);

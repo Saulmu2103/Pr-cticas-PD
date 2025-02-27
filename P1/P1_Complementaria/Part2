@@ -1,0 +1,70 @@
+#include <Arduino.h>
+#include <Adafruit_NeoPixel.h>
+
+#define PIN 48  
+
+#define NUMPIXELS 1
+
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
+
+#define DELAYVAL 1000 
+
+// Definimos los colores RGB y CMY
+#define ROJO        pixels.Color(1, 0, 0)      // Rojo
+#define VERDE       pixels.Color(0, 1, 0)      // Verde
+#define AZUL        pixels.Color(0, 0, 1)      // Azul
+#define CIAN        pixels.Color(0, 1, 1)     // Cian (Verde + Azul)
+#define MAGENTA     pixels.Color(1, 0, 1)     // Magenta (Rojo + Azul)
+#define AMARILLO    pixels.Color(1, 1, 0)     // Amarillo (Rojo + Verde)
+#define BLANCO      pixels.Color(1, 1, 1)     // Blanoo (todos a la vez)
+
+void setup() {
+
+  pixels.begin();
+
+  // Apagamos el LED
+  pixels.clear();
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Rojo
+  pixels.setPixelColor(0, ROJO);
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Verde
+  pixels.setPixelColor(0, VERDE);
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Azul
+  pixels.setPixelColor(0, AZUL);
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Cian
+  pixels.setPixelColor(0, CIAN);
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Magenta
+  pixels.setPixelColor(0, MAGENTA);
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Amarillo
+  pixels.setPixelColor(0, AMARILLO);
+  pixels.show();
+  delay(DELAYVAL);
+
+  // Encendemos con el color Amarillo
+  pixels.setPixelColor(0, BLANCO);
+  pixels.show();
+
+
+}
+
+
+void loop() {
+ 
+}

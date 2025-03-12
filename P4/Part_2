@@ -1,50 +1,72 @@
 #include <Arduino.h>
 
-void led_rojo (void * parameter);
+int led = 12;
 
-void led_verde (void * parameter);
+void led_on (void * parameter);
 
-int LED_R = 42;
+void led_off (void* parameter);
 
-int LED_V = 21;
+SemaphoreHandle_t encendido;
 
-void setup() 
+SemaphoreHandle_t apagado;
+
+void setup()
 {
+  pinMode(led, OUTPUT);
+
+  encendido = xSemaphoreCreateBinary();
+
+  apagado = xSemaphoreCreateBinary();
+
+  xSemaphoreGive(apagado);
+
+  xSemaphoreGive(encendido);
+
   Serial.begin(115200);
 
-  pinMode(LED_R, OUTPUT);
+  xTaskCreate(led_on, "led_on", 1000, NULL, 1, NULL);
 
-  pinMode(LED_V, OUTPUT);
-
-  xTaskCreate(led_rojo, "led_rojo", 1000, NULL, 1, NULL);
-
-  xTaskCreate(led_verde, "led_verde", 1000, NULL, 1, NULL);
+  xTaskCreate(led_off, "led_off", 1000, NULL, 1, NULL);
 
 }
 
-void loop() 
+void loop()
 {
 
 }
 
-void led_rojo (void * parameter)
+
+void led_on (void * parameter)
 {
-  for(;;){
-    digitalWrite(LED_R, HIGH);
-    delay(1000);
-    digitalWrite(LED_R, LOW);
-    delay(1000);
+  (void) parameter;
+  pinMode(led, OUTPUT);
+  for(;;)
+  {
+    if(xSemaphoreTake(apagado, portMAX_DELAY) == pdPASS)
+    {
+      digitalWrite(led, HIGH);
+      Serial.println("LED ENCENDIDO");
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      xSemaphoreGive(encendido);
+    }
   }
-vTaskDelete(NULL);
+  vTaskDelete(NULL);
 }
 
-void led_verde (void * parameter)
+void led_off (void * parameter)
 {
-  for(;;){
-    digitalWrite(LED_V, HIGH);
-    delay(1000);
-    digitalWrite(LED_V, LOW);
-    delay(1000);
+  (void) parameter;
+  pinMode(led, OUTPUT);
+  for(;;)
+  {
+    if(xSemaphoreTake(encendido, portMAX_DELAY) == pdPASS)
+    {
+      digitalWrite(led, LOW);
+      Serial.println("LED APAGADO");
+      vTaskDelay(1000 / portTICK_PERIOD_MS);
+      xSemaphoreGive(apagado);
+    }
   }
-vTaskDelete(NULL);
+  vTaskDelete(NULL);
 }
+

@@ -1,1 +1,77 @@
-DEJAR APUNTADAS LAS MODIFICACIONES EN EL CODIGO CADA VEZ QUE SE ACTUALIZE
+#include <Adafruit_AHTX0.h>
+#include <Wire.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <RTClib.h>
+#include <vector>  // Añadido: necesario para std::vector
+
+#define I2C_SDA 8
+#define I2C_SCL 9
+
+const char* ssid = "MASTER(1)";    // Nombre de la red
+const char* password = "masterssid";  // Contraseña (mínimo 8 caracteres)
+
+void sensor_temp(); // Declaración de la función sensor_temp
+void hora(); // Declaración de la función hora
+
+Adafruit_AHTX0 aht10;
+RTC_DS3231 rtc;
+
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  Wire.begin(I2C_SDA, I2C_SCL);  // Inicialización I2C añadida
+
+  aht10.begin();
+  rtc.begin();
+    
+  // Ajustar hora si el RTC perdió energía (descomenta para configurar)
+  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
+  WiFi.softAP(ssid, password);
+  Serial.println("\nRed WiFi creada");
+  Serial.print("SSID: ");
+  Serial.println(ssid);
+  Serial.print("Dirección IP: ");
+  Serial.println(WiFi.softAPIP());
+}
+
+void loop() {
+    hora();
+    sensor_temp();
+    delay(10000);
+}
+
+void sensor_temp()
+{
+  // SENSOR DE TEMPERATURA
+  sensors_event_t humidity, temp;
+  aht10.getEvent(&humidity, &temp);
+  Serial.print("Temperatura: ");  
+  Serial.print(temp.temperature);
+  Serial.println(" °C");
+  Serial.println("---------------------");
+}
+
+void hora()
+{
+DateTime now = rtc.now(); // Obtiene la fecha y hora actual del RTC
+
+Serial.print("Fecha: ");
+if (now.day() < 10) Serial.print('0');
+Serial.print(now.day());
+Serial.print('/');
+if (now.month() < 10) Serial.print('0');
+Serial.print(now.month());
+Serial.print('/');
+Serial.print(now.year());
+Serial.print(" Hora: ");
+if (now.hour() < 10) Serial.print('0');
+Serial.print(now.hour());
+Serial.print(':');
+if (now.minute() < 10) Serial.print('0');
+Serial.print(now.minute());
+Serial.print("  ");
+}
+
+

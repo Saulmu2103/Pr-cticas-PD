@@ -1,145 +1,107 @@
-//CODIGO PARA EL MAESTRO
-
 #include <Adafruit_AHTX0.h>
 #include <Wire.h>
 #include <WiFi.h>
-#include <esp_wifi.h>
 #include <RTClib.h>
-#include <vector>  
-#include <LiquidCrystal_I2C.h>
+#include <SPI.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_ILI9341.h>
 
-#define I2C_SDA 8
-#define I2C_SCL 9
+#define TFT_CS   7
+#define TFT_DC   6
+#define TFT_RST  5
 
-byte grados[8] = {
-  B11100,
-  B10100,
-  B11100,
-  B00000,
-  B00000,
-  B00000,
-  B00000,
-  B00000
-};
+Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
 
-LiquidCrystal_I2C lcd(0x27, 20, 4);
-
-WiFiServer server(3333); // Puerto del servidor
-WiFiClient client; // Cliente WiFi
-
-const char* ssid = "MASTER";    // Nombre de la red
-const char* password = "masterssid";  // Contraseña (mínimo 8 caracteres)
-
-void hora_temp(); // Declaración de la función hora_temp
-void esclavo();
+WiFiServer server(3333);
+const char* ssid = "MASTER";
+const char* password = "masterssid";
 
 Adafruit_AHTX0 aht10;
 RTC_DS3231 rtc;
 
-void setup() 
-{
+unsigned long lastUpdate = 0;
+const int refreshInterval = 1000;
+
+void hora_temp();
+
+void setup() {
   Serial.begin(115200);
-  lcd.init();
-  lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("Iniciando...");
-  delay(1000);
-  Wire.begin(I2C_SDA, I2C_SCL);  // Inicialización I2C añadida
-
-  aht10.begin();
-  rtc.begin();
-    
-  // Ajustar hora si el RTC perdió energía (descomenta para configurar)
-  // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-
-  lcd.clear();
-  lcd.setCursor(0, 0);
-
-  WiFi.softAP(ssid, password);
-  lcd.print("Red WiFi creada");
-  lcd.setCursor(0, 1);
-  lcd.print("SSID: ");
-  lcd.print(ssid);
-  lcd.setCursor(0, 2);
-  lcd.print("Pswd: ");
-  lcd.print(password);
-  lcd.setCursor(0, 3);
-  lcd.print("IP: ");
-  lcd.print(WiFi.softAPIP());
-  delay(5000);
-  lcd.clear();
-}
-
-void loop() 
-{
-  hora_temp(); // Llamada a la función para mostrar hora y temperatura
-}
-
-void hora_temp()
-{
-  // TEMPERATURA
-  DateTime now = rtc.now();
-  lcd.setCursor(0, 0);
-  if (now.hour() < 10) lcd.print('0');
-  lcd.print(now.hour());
-  lcd.print(':');
-  if (now.minute() < 10) lcd.print('0');
-  lcd.print(now.minute());
-
-  // TEMPERATURA
-  lcd.createChar(1, grados);
-  sensors_event_t humidity, temp;
-  aht10.getEvent(&humidity, &temp);
-  lcd.setCursor(7, 0);
-  lcd.print(" ");
-  lcd.print("T:");  
-  lcd.print(temp.temperature, 1);
-  lcd.write(byte(1));
-  lcd.print("C");
-
-  esclavo(); // Llamada a la función esclavo
-}
+  tft.begin();
+  tft.setRotation(3);
+  tft.fillScreen(ILI9341_BLACK);
   
-void esclavo()
-// Código del servidor modificado
-{
-  // Verificar si hay clientes conectados
-  if (!client || !client.connected()) {
-    client = server.available();
-    if (client) {
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Cliente conectado!");  // Cambiado println por print
-    }
+  // Configuración de colores iniciales
+  tft.setTextColor(ILI9341_YELLOW, ILI9341_CYAN);
+
+  Wire.begin(8, 9);
+
+  if (!aht10.begin() || !rtc.begin()) {
+    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
+    tft.println("Error Sensores!");
+    while(1);
   }
 
-  // Leer datos del cliente
-  if (client && client.connected()) {
-    if (client.available()) {
-      String message = client.readStringUntil('\n');
-      message.trim();
-      
-      // Mostrar en LCD
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Mensaje recibido:");
-      lcd.setCursor(0, 1);  // Segunda línea si es display 16x2
-      lcd.print(message);
+  WiFi.softAP(ssid, password);
+  
+  tft.fillScreen(ILI9341_DARKCYAN);
+  tft.setTextColor(ILI9341_YELLOW, ILI9341_DARKCYAN);
+  tft.setTextSize(2);
+  tft.setCursor(40, 100);
+  tft.print("INICIANDO SISTEMA...");
+  delay(3000);
+  tft.fillScreen(ILI9341_BLACK);
 
-      // Enviar respuesta al cliente (FUNDAMENTAL)  // <- Cambio clave
-      client.print("ECO: ");  
-      client.println(message); 
+  tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
+  tft.setTextSize(2);
+  tft.setCursor(100, 12);
+  tft.print("INTERIOR");
+  
+  // Etiquetas estáticas
+  tft.setTextSize(2);
+  tft.setCursor(10, 60);
+  tft.print("Hora:");
+  tft.setCursor(10, 100);
+  tft.print("Temp:");
+}
 
-      delay(100);  // Pequeño delay para estabilidad
-    }
-    
-    // Cerrar conexión después de 30 seg de inactividad (Opcional)
-    static unsigned long lastActivity = millis();
-    if (millis() - lastActivity > 30000) {
-      client.stop();
-      lcd.clear();
-      lcd.print("Conexion cerrada");
-      delay(2000);
-    }
+void loop() {
+  if (millis() - lastUpdate >= refreshInterval) {
+    hora_temp();
+    lastUpdate = millis();
+  }
+}
+
+void hora_temp() {
+  static int lastHour = -1, lastMinute = -1;
+  static float lastTemp = -100;
+  const int timeX = 80, timeY = 60;
+  const int tempX = 80, tempY = 100;
+
+  // Actualizar Hora
+  DateTime now = rtc.now();
+  if(now.hour() != lastHour || now.minute() != lastMinute) {
+    tft.fillRect(timeX, timeY, 100, 20,   ILI9341_BLACK);
+    tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
+    tft.setCursor(timeX, timeY);
+    if(now.hour() < 10) tft.print('0');
+    tft.print(now.hour());
+    tft.print(':');
+    if(now.minute() < 10) tft.print('0');
+    tft.print(now.minute());
+    lastHour = now.hour();
+    lastMinute = now.minute();
+  }
+
+  // Actualizar Temperatura
+  sensors_event_t temp;
+  aht10.getEvent(NULL, &temp);
+  if(abs(temp.temperature - lastTemp) >= 0.1) {
+    tft.fillRect(tempX, tempY, 80, 20, ILI9341_BLACK);
+    tft.setTextColor( ILI9341_GREEN, ILI9341_BLACK);    
+    tft.setCursor(tempX, tempY);
+    tft.print(temp.temperature, 1);
+    tft.print(" C");
+    tft.drawCircle(tempX + 55, tempY + 3, 2, ILI9341_GREEN);  // Símbolo °
+    lastTemp = temp.temperature;
   }
 }

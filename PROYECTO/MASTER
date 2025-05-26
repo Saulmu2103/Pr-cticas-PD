@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
 #include <RTClib.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -23,7 +23,7 @@ Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
 float tempHistory[MAX_HISTORY];
 int historyCount = 0;
 
-WiFiServer server(80);
+WebServer server(80);
 const char* ssid = "esp";
 const char* password = "masterssid";
 String receivedData = "ND";

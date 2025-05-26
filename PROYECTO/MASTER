@@ -1,8 +1,6 @@
 #include <Adafruit_AHTX0.h>
 #include <Wire.h>
 #include <WiFi.h>
-#include <AsyncTCP.h>
-#include <WebServer.h>
 #include <RTClib.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -23,48 +21,6 @@ Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
 float tempHistory[MAX_HISTORY];
 int historyCount = 0;
 
-WebServer server(80);
-const char* ssid = "esp";
-const char* password = "masterssid";
-String receivedData = "ND";
-
-void handleRoot() {
-  String html = R"=====(
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <title>Datos del Sensor</title>
-    <meta http-equiv="refresh" content="2">  // Actualiza cada 2 segundos
-    <style>
-      body { font-family: Arial; text-align: center; margin-top: 50px; }
-      button { padding: 10px 20px; font-size: 16px; }
-    </style>
-  </head>
-  <body>
-    <h1>Datos Recibidos</h1>
-    <div id="data">%DATA%</div>
-    <br>
-    <a href="/download"><button>Descargar Datos</button></a>
-  </body>
-  </html>
-  )=====";
-
-  html.replace("%DATA%", receivedData);
-  server.send(200, "text/html", html);
-}
-
-
-void handleDownload() {
-  server.send(200, "text/plain", receivedData);  // Envía los datos como texto plano
-}
-
-void handlePost() {
-  if (server.hasArg("plain")) {
-    receivedData = server.arg("plain");
-    server.send(200, "text/plain", "Datos recibidos");
-  }
-}
-
 Adafruit_AHTX0 aht10;
 RTC_DS3231 rtc;
 
@@ -84,25 +40,14 @@ void setup() {
 
   Wire.begin(8, 9);
 
-  if (!aht10.begin() || !rtc.begin()) {
+  if (aht10.begin() || rtc.begin()) {
     tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
     tft.println("Error Sensores!");
     while(1);
   }
 
-   // Ajustar hora si el RTC perdió energía (descomenta para configurar)
+  // Ajustar hora si el RTC perdió energía (descomenta para configurar)
   //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-
-  WiFi.softAP(ssid, password);
-  Serial.print("IP del receptor: ");
-  Serial.println(WiFi.softAPIP());
-
-  // Configurar rutas del servidor
-  server.on("/", handleRoot);
-  server.on("/download", handleDownload);
-  server.on("/data", HTTP_POST, handlePost);
-  
-  server.begin();
   
   tft.fillScreen(ILI9341_DARKCYAN);
   tft.setTextColor(ILI9341_YELLOW, ILI9341_DARKCYAN);

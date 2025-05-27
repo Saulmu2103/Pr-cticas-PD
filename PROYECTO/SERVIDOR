@@ -24,7 +24,7 @@ void handleRoot() {
   <!DOCTYPE html>
   <html>
   <head>
-    <title>Estación Meteorológica</title>
+    <title>Estacion Meteorologica</title>
     <meta http-equiv="refresh" content="5">
     <style>
       body { font-family: Arial, sans-serif; margin: 20px; }
@@ -36,15 +36,15 @@ void handleRoot() {
     </style>
   </head>
   <body>
-    <h1>Datos Meteorológicos</h1>
+    <h1>Datos Meteorologicos</h1>
     
     <div class="data-container">
       <div class="data-box">
         <h2>Temperatura</h2>
-        <p>%TEMPERATURA% °C</p>
+        <p>%TEMPERATURA% C</p>
       </div>
       <div class="data-box">
-        <h2>Presión</h2>
+        <h2>Presion</h2>
         <p>%PRESION% hPa</p>
       </div>
       <div class="data-box">

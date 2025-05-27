@@ -1,6 +1,8 @@
 #include <Adafruit_AHTX0.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 #include <RTClib.h>
 #include <SPI.h>
 #include <Adafruit_GFX.h>
@@ -9,6 +11,10 @@
 #define TFT_CS   7
 #define TFT_DC   6
 #define TFT_RST  5
+
+const char* ssid = "ESP32-AP";
+const char* password = "password";
+const char* serverUrl = "http://192.168.4.1/data";
 
 Adafruit_ILI9341 tft(TFT_CS, TFT_DC, TFT_RST);
 
@@ -40,7 +46,7 @@ void setup() {
 
   Wire.begin(8, 9);
 
-  if (aht10.begin() || rtc.begin()) {
+  if (!aht10.begin() || !rtc.begin()) {
     tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
     tft.println("Error Sensores!");
     while(1);
@@ -54,9 +60,12 @@ void setup() {
   tft.setTextSize(2);
   tft.setCursor(40, 100);
   tft.print("INICIANDO SISTEMA...");
-  delay(3000);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");}
+  
   tft.fillScreen(ILI9341_BLACK);
-
   tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
   tft.setTextSize(2);
   tft.setCursor(10, 12);
@@ -94,7 +103,7 @@ void hora_temp() {
   static int lastHour = -1, lastMinute = -1;
   static float lastTemp = -100;
   const int timeX = 250, timeY = 12;
-  const int tempX = 40 , tempY = 50;
+  const int tempX = 35 , tempY = 50;
 
   // Actualizar Hora
   DateTime now = rtc.now();
@@ -123,6 +132,40 @@ void hora_temp() {
     tft.drawCircle(tempX + 55, tempY + 3, 2, ILI9341_GREEN);  // Símbolo °
     lastTemp = temp.temperature;
   }
+  // Get data de la nube
+   if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    http.begin(serverUrl);
+    
+    int httpCode = http.GET();
+    
+    if (httpCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+      
+      StaticJsonDocument<200> doc;
+      deserializeJson(doc, payload);
+      
+      float temp = doc["temperature"];
+      float pres = doc["pressure"];
+      float hum = doc["humidity"];
+      
+      tft.setCursor(35, 130);
+      tft.print(String(temp, 1));
+      tft.print(" C");
+      tft.drawCircle(35 + 55, 130 + 3, 2, ILI9341_GREEN);  // Símbolo °
+      tft.fillRect(35, 170, 60, 20, ILI9341_BLACK);
+      tft.setCursor(35, 170);
+      tft.print(String(pres, 0));
+      tft.setCursor(90, 170);
+      tft.print("hPa");
+      tft.setCursor(35, 210);
+      tft.print(String(hum, 1));
+      tft.setCursor(90, 210);
+      tft.print("%");
+    }
+     http.end();
+  }
+
    if (historyCount < MAX_HISTORY) {
       tempHistory[historyCount] = temp.temperature;
       historyCount++;
@@ -160,4 +203,5 @@ void hora_temp() {
         prevY = y;
     }
   }
+  
 }

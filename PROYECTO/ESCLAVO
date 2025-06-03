@@ -1,69 +1,51 @@
 #include <WiFi.h>
+#include <HTTPClient.h>
+#include <Wire.h>
+#include <Adafruit_BME280.h>
+#include <Adafruit_Sensor.h>
 
-const char* ssid = "MASTER";
-const char* password = "masterssid";
-const char* serverIP = "192.168.4.1";
-const int serverPort = 3333;
+const char* ssid = "ESP32-AP";
+const char* password = "password";
+const char* serverURL = "http://192.168.4.1/submit";
 
-WiFiClient client;
-
-void connectToServer();
+Adafruit_BME280 bme; // Objeto del sensor BME280
 
 void setup() {
   Serial.begin(115200);
   
-  WiFi.begin(ssid, password);
-  Serial.print("Conectando a ");
-  Serial.println(ssid);
-  
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // Inicializar sensor BME280
+  if (!bme.begin(0x76)) { // Usar 0x77 si falla
+    Serial.println("Error al iniciar BME280!");
+    while (1);
   }
-  
-  Serial.println("\nConectado a WiFi!");
-  Serial.print("IP local: ");
-  Serial.println(WiFi.localIP());
-  
-  connectToServer();
-}
 
-void connectToServer() {
-  Serial.println("Conectando al servidor...");
-  if (client.connect(serverIP, serverPort)) {
-    Serial.println("Conexión exitosa!");
-  } else {
-    Serial.println("Fallo conexión servidor");
-  }
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
 }
 
 void loop() {
-  if (!client.connected()) {
-    connectToServer();
-    delay(5000);
-    return;
-  }
+  if (WiFi.status() == WL_CONNECTED) {
+    // Leer datos reales del sensor
+    float temp = bme.readTemperature();    // °C
+    float pres = bme.readPressure() / 100; // Convertir Pa a hPa
+    float hum = bme.readHumidity();        // % Humedad relativa
 
-  // Enviar mensaje
-  String message = "Test:" + String(millis());
-  client.println(message);
-  Serial.print("Enviado: ");
-  Serial.println(message);
-
-  // Esperar respuesta
-  unsigned long start = millis();
-  while (!client.available() && millis() - start < 2000) {
-    delay(10);
+    HTTPClient http;
+    http.begin(serverURL);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    
+    String data = "temp=" + String(temp) + 
+                  "&pres=" + String(pres) + 
+                  "&hum=" + String(hum);
+                  
+    int httpCode = http.POST(data);
+    
+    if (httpCode == HTTP_CODE_OK) {
+      Serial.print("Datos enviados: ");
+      Serial.println(data);
+    }
+    
+    http.end();
   }
-  
-  if (client.available()) {
-    String response = client.readStringUntil('\n');
-    Serial.print("Respuesta: ");
-    Serial.println(response);
-  } else {
-    Serial.println("Sin respuesta del servidor");
-    client.stop();
-  }
-  
-  delay(10000);
+  delay(1000); 
 }

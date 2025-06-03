@@ -36,10 +36,11 @@ int historyCountExt = 0;
 Adafruit_AHTX0 aht10;
 RTC_DS3231 rtc;
 
+void drawGraph(int x, int y, int w, int h, float data[], int dataCount, uint16_t color);
+
 unsigned long lastUpdate = 0;
 const int refreshInterval = 1000;
 
-void hora_temp();
 void drawGraph(int x, int y, int w, int h, float data[], int dataCount, uint16_t color);
 
 void setup() {
@@ -52,16 +53,16 @@ void setup() {
   Wire.begin(8, 9);
 
   if (!aht10.begin() || !rtc.begin()) {
-    tft.setTextColor(ILI9341_WHITE, ILI9341_BLACK);
     tft.println("Error Sensores!");
     while(1);
   }
 
-  WiFi.begin(ssid, password);
+
+ WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
   
   tft.fillScreen(ILI9341_BLACK);
-  
+
   // Configuración inicial de la interfaz
   tft.setTextColor(ILI9341_GREEN, ILI9341_BLACK);
   tft.setTextSize(2);
@@ -80,6 +81,8 @@ void setup() {
   tft.print("P:");
   tft.setCursor(10, 210);
   tft.print("H:");
+  tft.setCursor(85, 130);
+  tft.print(" C");
 
   // Bordes de los gráficos
   tft.drawRect(GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT, ILI9341_RED);
@@ -89,48 +92,12 @@ void setup() {
 }
 
 void loop() {
-  if (millis() - lastUpdate >= refreshInterval) {
-    hora_temp();
-    lastUpdate = millis();
+  if(WiFi.status() != WL_CONNECTED) {
+    WiFi.reconnect();
+    Serial.print("se ha desconectado");
   }
-}
 
-void drawGraph(int x, int y, int w, int h, float data[], int dataCount, uint16_t color) {
-  tft.fillRect(x + 1, y + 1, w - 2, h - 2, ILI9341_BLACK);
-  
-  if(dataCount < 1) return;
-  
-  // Calcular rango dinámico
-  float minVal = data[0];
-  float maxVal = data[0];
-  for(int i=1; i<dataCount; i++) {
-    if(data[i] < minVal) minVal = data[i];
-    if(data[i] > maxVal) maxVal = data[i];
-  }
-  
-  // Margen para evitar división por cero
-  minVal -= 0.5;
-  maxVal += 0.5;
-  if((maxVal - minVal) < 0.1) maxVal = minVal + 0.1;
-  
-  // Dibujar línea
-  int prevX = x;
-  int prevY = y + h - ((data[0] - minVal)/(maxVal - minVal)) * h;
-  prevY = constrain(prevY, y, y + h - 1);
-  
-  for(int i=1; i<dataCount; i++) {
-    int newX = x + i;
-    int newY = y + h - ((data[i] - minVal)/(maxVal - minVal)) * h;
-    newY = constrain(newY, y, y + h - 1);
-    
-    tft.drawLine(prevX, prevY, newX, newY, color);
-    prevX = newX;
-    prevY = newY;
-  }
-}
-
-void hora_temp() {
-  static int lastHour = -1, lastMinute = -1;
+static int lastHour = -1, lastMinute = -1;
   static float lastTemp = -100;
   const int timeX = 250, timeY = 12;
   const int tempX = 35, tempY = 50;
@@ -189,18 +156,21 @@ void hora_temp() {
       // Actualizar valores en pantalla
       tft.setCursor(35, 130);
       tft.print(String(tempExt, 1));
-      tft.print(" C");
+      Serial.println(tempExt);
       tft.drawCircle(35 + 55, 130 + 3, 2, ILI9341_GREEN);
       
       tft.fillRect(35, 170, 60, 20, ILI9341_BLACK);
       tft.setCursor(35, 170);
       tft.print(String(pres, 0));
-      tft.setCursor(90, 170);
+      Serial.println(pres);
+      tft.setCursor(85, 170);
       tft.print("hPa");
       
       tft.setCursor(35, 210);
       tft.print(String(hum, 1));
-      tft.setCursor(90, 210);
+      Serial.println(hum);
+      Serial.print("---");
+      tft.setCursor(85, 210);
       tft.print("%");
 
       // Actualizar historicos externos
@@ -219,6 +189,7 @@ void hora_temp() {
       }
     }
     http.end();
+    delay(2000);
   }
 
   // Dibujar todos los gráficos
@@ -226,4 +197,42 @@ void hora_temp() {
   drawGraph(130, 125, GRAPH_WIDTH, GRAPH_HEIGHT, tempExtHistory, historyCountExt, ILI9341_YELLOW);      // Temp Externa
   drawGraph(130, 165, GRAPH_WIDTH, GRAPH_HEIGHT, presHistory, historyCountExt, ILI9341_BLUE);           // Presión
   drawGraph(130, 205, GRAPH_WIDTH, GRAPH_HEIGHT, humHistory, historyCountExt, ILI9341_CYAN);            // Humedad
+
 }
+
+
+void drawGraph(int x, int y, int w, int h, float data[], int dataCount, uint16_t color) {
+  tft.fillRect(x + 1, y + 1, w - 2, h - 2, ILI9341_BLACK);
+  
+  if(dataCount < 1) return;
+  
+  // Calcular rango dinámico
+  float minVal = data[0];
+  float maxVal = data[0];
+  for(int i=1; i<dataCount; i++) {
+    if(data[i] < minVal) minVal = data[i];
+    if(data[i] > maxVal) maxVal = data[i];
+  }
+  
+  // Margen para evitar división por cero
+  minVal -= 0.5;
+  maxVal += 0.5;
+  if((maxVal - minVal) < 0.1) maxVal = minVal + 0.1;
+  
+  // Dibujar línea
+  int prevX = x;
+  int prevY = y + h - ((data[0] - minVal)/(maxVal - minVal)) * h;
+  prevY = constrain(prevY, y, y + h - 1);
+  
+  for(int i=1; i<dataCount; i++) {
+    int newX = x + i;
+    int newY = y + h - ((data[i] - minVal)/(maxVal - minVal)) * h;
+    newY = constrain(newY, y, y + h - 1);
+    
+    tft.drawLine(prevX, prevY, newX, newY, color);
+    prevX = newX;
+    prevY = newY;
+  }
+}
+
+
